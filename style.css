@@ -160,3 +160,13 @@ button[type="submit"]:active {
   font-style: italic;
   color: #a0a0b0;
 }
+.textarea-edit {
+  width: 100%;
+  padding: 10px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+  border-radius: 10px;
+  border: 1px solid #e0e0f0;
+  margin: 10px 0;
+  resize: vertical;
+}

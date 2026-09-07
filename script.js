@@ -12,17 +12,17 @@ const input = document.getElementById('input-nota');
 const selectCategoria = document.getElementById('select-categoria');
 const lista = document.getElementById('lista-notas');
 
-// Notas "reveladas" temporalmente en esta sesión (por PIN o por vistazo tras temporizador).
-// Se reinicia siempre que recargas la página, por seguridad.
 const notasVisibles = new Set();
+// Guarda qué nota está actualmente en modo edición (índice), o null si ninguna
+let notaEditando = null;
 
-function cargarCategoriasEnSelect() {
-  selectCategoria.innerHTML = '';
+function cargarCategoriasEnSelect(selectElemento) {
+  selectElemento.innerHTML = '';
   categorias.forEach((cat) => {
     const option = document.createElement('option');
     option.value = cat.nombre;
     option.textContent = `${cat.simbolo} ${cat.nombre}`;
-    selectCategoria.appendChild(option);
+    selectElemento.appendChild(option);
   });
 }
 
@@ -54,6 +54,55 @@ function cargarNotas() {
     const li = document.createElement('li');
     li.style.borderLeft = `6px solid ${cat.color}`;
 
+    // --- MODO EDICIÓN ---
+    if (notaEditando === index) {
+      const selectEdit = document.createElement('select');
+      cargarCategoriasEnSelect(selectEdit);
+      selectEdit.value = nota.categoria;
+
+      const textareaEdit = document.createElement('textarea');
+      textareaEdit.value = nota.texto;
+      textareaEdit.rows = 3;
+      textareaEdit.className = 'textarea-edit';
+
+      const grupoBotonesEdit = document.createElement('div');
+      grupoBotonesEdit.className = 'grupo-botones';
+
+      const botonGuardar = document.createElement('button');
+      botonGuardar.type = 'button';
+      botonGuardar.className = 'boton-icono';
+      botonGuardar.textContent = '✅ Guardar';
+      botonGuardar.addEventListener('click', () => {
+        const nuevoTexto = textareaEdit.value.trim();
+        if (nuevoTexto === '') return;
+        const notasActuales = obtenerNotas();
+        notasActuales[index].texto = nuevoTexto;
+        notasActuales[index].categoria = selectEdit.value;
+        guardarNotas(notasActuales);
+        notaEditando = null;
+        cargarNotas();
+      });
+
+      const botonCancelar = document.createElement('button');
+      botonCancelar.type = 'button';
+      botonCancelar.className = 'boton-icono';
+      botonCancelar.textContent = '✖️ Cancelar';
+      botonCancelar.addEventListener('click', () => {
+        notaEditando = null;
+        cargarNotas();
+      });
+
+      grupoBotonesEdit.appendChild(botonGuardar);
+      grupoBotonesEdit.appendChild(botonCancelar);
+
+      li.appendChild(selectEdit);
+      li.appendChild(textareaEdit);
+      li.appendChild(grupoBotonesEdit);
+      lista.appendChild(li);
+      return; // no seguir con el modo normal para esta nota
+    }
+
+    // --- MODO NORMAL ---
     const fila = document.createElement('div');
     fila.className = 'fila-nota';
 
@@ -70,21 +119,32 @@ function cargarNotas() {
     botonTemporizador.type = 'button';
     botonTemporizador.className = 'boton-icono';
 
+    const botonEditar = document.createElement('button');
+    botonEditar.type = 'button';
+    botonEditar.className = 'boton-icono';
+    botonEditar.textContent = '✏️';
+    botonEditar.title = 'Editar nota';
+
+    const botonBorrar = document.createElement('button');
+    botonBorrar.type = 'button';
+    botonBorrar.className = 'boton-icono';
+    botonBorrar.textContent = '🗑️';
+    botonBorrar.title = 'Borrar nota';
+
     const grupoBotones = document.createElement('div');
     grupoBotones.className = 'grupo-botones';
     grupoBotones.appendChild(botonTemporizador);
     grupoBotones.appendChild(botonCandado);
+    grupoBotones.appendChild(botonEditar);
+    grupoBotones.appendChild(botonBorrar);
 
     fila.appendChild(badge);
     fila.appendChild(grupoBotones);
 
     const texto = document.createElement('p');
 
-    // ¿Debe estar oculta por el temporizador?
     const temporizadorCumplido = nota.ocultarEn && ahora >= nota.ocultarEn;
-    // ¿Debe estar oculta por el candado?
     const bloqueada = nota.bloqueada;
-
     const debeOcultarse = (bloqueada || temporizadorCumplido) && !notasVisibles.has(index);
 
     if (debeOcultarse) {
@@ -93,13 +153,15 @@ function cargarNotas() {
         ? 'Nota privada. Haz clic en el candado para verla.'
         : 'Nota oculta por temporizador. Haz clic en el ojo para verla.';
       texto.classList.add('texto-oculto');
+      // Por seguridad, no permitir editar/borrar sin desbloquear primero
+      botonEditar.disabled = true;
+      botonBorrar.disabled = true;
     } else {
       botonCandado.textContent = bloqueada ? '🔓' : '➕🔒';
       texto.textContent = nota.texto;
       texto.classList.remove('texto-oculto');
     }
 
-    // Configurar el botón de temporizador según su estado
     if (!nota.ocultarEn) {
       botonTemporizador.textContent = '⏱️';
       botonTemporizador.title = 'Programar ocultamiento automático';
@@ -114,11 +176,29 @@ function cargarNotas() {
 
     botonCandado.addEventListener('click', () => manejarCandado(index));
     botonTemporizador.addEventListener('click', () => manejarTemporizador(index));
+    botonEditar.addEventListener('click', () => manejarEditar(index));
+    botonBorrar.addEventListener('click', () => manejarBorrar(index));
 
     li.appendChild(fila);
     li.appendChild(texto);
     lista.appendChild(li);
   });
+}
+
+function manejarEditar(index) {
+  notaEditando = index;
+  cargarNotas();
+}
+
+function manejarBorrar(index) {
+  const confirmar = confirm('¿Seguro que quieres borrar esta nota? No se puede deshacer.');
+  if (!confirmar) return;
+
+  const notas = obtenerNotas();
+  notas.splice(index, 1); // elimina la nota en esa posición
+  guardarNotas(notas);
+  notasVisibles.clear(); // reiniciamos, ya que los índices cambiaron
+  cargarNotas();
 }
 
 function manejarCandado(index) {
@@ -160,7 +240,6 @@ function manejarTemporizador(index) {
   const temporizadorCumplido = nota.ocultarEn && ahora >= nota.ocultarEn;
 
   if (!nota.ocultarEn) {
-    // Aún no tiene temporizador: pedir duración
     const minutosTexto = prompt(
       '¿En cuántos minutos quieres que esta nota se oculte sola?\n(Ejemplos: 1 = un minuto, 60 = una hora, 1440 = un día)'
     );
@@ -174,7 +253,6 @@ function manejarTemporizador(index) {
   }
 
   if (temporizadorCumplido) {
-    // Ya se ocultó: el botón funciona como un "ojo" para ver/ocultar temporalmente
     if (notasVisibles.has(index)) {
       notasVisibles.delete(index);
     } else {
@@ -184,7 +262,6 @@ function manejarTemporizador(index) {
     return;
   }
 
-  // Temporizador activo pero aún no cumplido: no hacer nada, solo informar
   alert('El temporizador ya está activo. Espera a que se cumpla el tiempo.');
 }
 
@@ -210,9 +287,13 @@ form.addEventListener('submit', function (e) {
   cargarNotas();
 });
 
-cargarCategoriasEnSelect();
+cargarCategoriasEnSelect(selectCategoria);
 cargarNotas();
 
-// Revisa cada 10 segundos si algún temporizador se cumplió, para ocultar la nota
-// automáticamente sin que el usuario tenga que recargar la página.
-setInterval(cargarNotas, 10000);
+setInterval(() => {
+  // No refrescar automáticamente si hay una nota en modo edición,
+  // para no perder lo que el usuario está escribiendo
+  if (notaEditando === null) {
+    cargarNotas();
+  }
+}, 10000);
