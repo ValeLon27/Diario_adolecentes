@@ -33,6 +33,72 @@ function obtenerNotas() {
 function guardarNotas(notas) {
   localStorage.setItem('notas', JSON.stringify(notas));
 }
+function obtenerFechaHoy() {
+  // Devuelve la fecha de hoy en formato YYYY-MM-DD (sin hora), según tu zona horaria local
+  const ahora = new Date();
+  const year = ahora.getFullYear();
+  const month = String(ahora.getMonth() + 1).padStart(2, '0');
+  const day = String(ahora.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function obtenerRacha() {
+  return JSON.parse(localStorage.getItem('racha')) || { ultimaFecha: null, diasSeguidos: 0 };
+}
+
+function guardarRacha(racha) {
+  localStorage.setItem('racha', JSON.stringify(racha));
+}
+
+function actualizarRacha() {
+  const hoy = obtenerFechaHoy();
+  const racha = obtenerRacha();
+
+  if (racha.ultimaFecha === hoy) {
+    // Ya escribiste algo hoy, no cambia nada
+    return;
+  }
+
+  if (!racha.ultimaFecha) {
+    // Primera vez que escribes algo
+    racha.diasSeguidos = 1;
+  } else {
+    const ayer = new Date();
+    ayer.setDate(ayer.getDate() - 1);
+    const year = ayer.getFullYear();
+    const month = String(ayer.getMonth() + 1).padStart(2, '0');
+    const day = String(ayer.getDate()).padStart(2, '0');
+    const fechaAyer = `${year}-${month}-${day}`;
+
+    if (racha.ultimaFecha === fechaAyer) {
+      // Escribiste ayer también: la racha continúa
+      racha.diasSeguidos += 1;
+    } else {
+      // Se rompió la racha (pasó más de un día sin escribir)
+      racha.diasSeguidos = 1;
+    }
+  }
+
+  racha.ultimaFecha = hoy;
+  guardarRacha(racha);
+}
+
+function mostrarRacha() {
+  const racha = obtenerRacha();
+  const container = document.getElementById('racha-container');
+
+  if (racha.diasSeguidos <= 0) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const emoji = racha.diasSeguidos >= 7 ? '🔥' : '✨';
+  const texto = racha.diasSeguidos === 1
+    ? `${emoji} ¡Primer día de tu racha!`
+    : `${emoji} Llevas ${racha.diasSeguidos} días seguidos escribiendo`;
+
+  container.innerHTML = `<div class="badge-racha">${texto}</div>`;
+}
 
 function tiempoRestanteTexto(ms) {
   const minutos = Math.ceil(ms / 60000);
@@ -283,8 +349,12 @@ form.addEventListener('submit', function (e) {
   notas.push(nuevaNota);
   guardarNotas(notas);
 
+  actualizarRacha();
+  mostrarRacha();
+
   input.value = '';
   cargarNotas();
+  mostrarRachas();
 });
 
 cargarCategoriasEnSelect(selectCategoria);

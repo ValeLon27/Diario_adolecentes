@@ -170,3 +170,15 @@ button[type="submit"]:active {
   margin: 10px 0;
   resize: vertical;
 }
+.badge-racha {
+  text-align: center;
+  background: linear-gradient(90deg, #fdcb6e, #ff9a56);
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  width: fit-content;
+  margin: 0 auto 20px auto;
+  box-shadow: 0 3px 10px rgba(255, 154, 86, 0.3);
+}
